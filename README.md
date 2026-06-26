@@ -1,2 +1,2 @@
-# nb_mesamis
-... because friends are important
+# mesamis
+because friends are important
