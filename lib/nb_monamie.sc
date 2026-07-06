@@ -1,8 +1,8 @@
-// mes amis - an approximation of just friends synth mode v.1.0 @sonoCircuit
+// monami.e - an approximation of just friends synth mode v.1.0 @sonoCircuit
 // based on ImaginaryFriends @synthetivv
 // thank you for your amazing waveshaping implementation!
 
-NB_mesamis {
+NB_monamie {
 
 	*initClass {
 
@@ -43,14 +43,14 @@ NB_mesamis {
 
 					synthGroup = Group.new(s);
 
-					SynthDef.new(\mesAmis, {
+					SynthDef.new(\monAmie, {
 						arg outBus, sendABus, sendBBus, voiceID = 0,
 						level = 1, vel = 1, pan = 0, panDrift = 0, sendA = 0, sendB = 0,
 						gate = 1, envMode = 0, envRatio = 0, envDur = 1.2,
 						freq = 220, pitchBend = 1, bendDepth = 0, fmRatio = 0.5, fmIndex = 0, ramp = 0, curve = 0,
 						modDepth = 0, sendAMod = 0, sendBMod = 0, fmMod = 0, rampMod = 0, curveMod = 0;
 
-						var env, envAR, envASR, atk, rel, dA;
+						var env, envAR, envASR, envCYL, atk, rel, dA;
 						var modHz, modNz, fmInt, snd, tri, sin, duty, shape, logCurve, expCurve;
 
 						//---- scale, slew, clamp
@@ -64,7 +64,7 @@ NB_mesamis {
 
 						fmInt = voiceID.clip(0, 5) / 5;
 						fmIndex = Lag.kr(fmIndex + (fmMod * modDepth)).clip(-1, 1);
-						fmIndex = fmIndex * (Select.kr(fmIndex > 0, [fmInt, 1]));
+						fmIndex = fmIndex.abs * (Select.kr(fmIndex > 0, [fmInt, 1]));
 
 						curve = Lag.kr(curve + (curveMod * modDepth).clip(-1, 1));
 						ramp = Lag.kr(ramp + (rampMod * modDepth)).linlin(-1, 1, 0.002, 0.998);
@@ -74,11 +74,12 @@ NB_mesamis {
 						dA = Select.kr(envMode, [2, 0]);
 						envAR = EnvGen.kr(Env.new([0, 1, 0], [atk, rel], -6), gate, doneAction: dA);
 						envASR = EnvGen.kr(Env.asr(atk, 1, rel), gate, doneAction: 2 - dA);
-						env = Select.kr(envMode, [envAR, envASR]) * vel;
+						envCYL = EnvGen.kr(Env.new([0, 1, 0, 1, 0], [atk, rel, atk, rel], releaseNode: 3, loopNode: 1), gate, doneAction: 0);
+						env = Select.kr(envMode, [envAR, envASR, envCYL]) * vel;
 
 						//---- oscillators and fm
 						freq = (freq * (pitchBend * bendDepth).midiratio).clip(20, 20000);
-						modNz = ClipNoise.ar.range(1 - fmIndex.abs.lincurve(0, 1, 0, 1, 8), 1) * 2;
+						modNz = ClipNoise.ar.range(1 - fmIndex.lincurve(0, 1, 0, 1, 8), 1) * 2;
 						modHz = SinOsc.ar(freq * fmRatio, 0, fmIndex * freq * fmRatio * modNz * 4);
 						freq = freq + modHz;
 
@@ -97,7 +98,7 @@ NB_mesamis {
 
 						//---- dynamics and pan
 						snd = (snd * level * env).tanh;
-						snd = snd * -12.dbamp;
+						snd = snd * -9.dbamp;
 						snd = Pan2.ar(snd, pan);
 
 						Out.ar(outBus, snd);
@@ -105,9 +106,9 @@ NB_mesamis {
 						Out.ar(sendBBus, snd * sendB);
 					}).add;
 
-					"nb mes-amis initialized".postln;
+					"nb monami.e initialized".postln;
 				};
-			}, "/nb_mesamis/init");
+			}, "/nb_monamie/init");
 
 			OSCFunc.new({ |msg|
 				var vox = msg[1].asInteger;
@@ -116,7 +117,7 @@ NB_mesamis {
 				var syn;
 				if (synthGroup.notNil) {
 					if (synthVoices[vox].notNil) { synthVoices[vox].set(\gate, -1.05) };
-					syn = Synth.new(\mesAmis,
+					syn = Synth.new(\monAmie,
 						[
 							\voiceID, vox,
 							\freq, freq,
@@ -125,15 +126,15 @@ NB_mesamis {
 							\sendBBus, ~sendB ? s.outputBus,
 						] ++ synthParams.getPairs, target: synthGroup
 					);
-					synthVoices[vox] = syn;
 					syn.onFree({ if(synthVoices[vox] === syn) { synthVoices[vox] = nil } });
+					synthVoices[vox] = syn;
 				};
-			}, "/nb_mesamis/note_on");
+			}, "/nb_monamie/note_on");
 
 			OSCFunc.new({ |msg|
 				var vox = msg[1].asInteger;
 				if (synthVoices[vox].notNil) { synthVoices[vox].set(\gate, 0) };
-			}, "/nb_mesamis/note_off");
+			}, "/nb_monamie/note_off");
 
 			OSCFunc.new({ |msg|
 				var key = msg[1].asSymbol;
@@ -142,13 +143,13 @@ NB_mesamis {
 					synthGroup.set(key, val);
 				};
 				synthParams[key] = val;
-			}, "/nb_mesamis/set_param");
+			}, "/nb_monamie/set_param");
 
 			OSCFunc.new({ |msg|
 				if (synthGroup.notNil) {
 					synthGroup.set(\gate, -1.05);
 				};
-			}, "/nb_mesamis/panic");
+			}, "/nb_monamie/panic");
 
 			OSCFunc.new({ |msg|
 				if (synthGroup.notNil) {
@@ -157,9 +158,9 @@ NB_mesamis {
 					numVoices.do({ arg vox;
 						synthVoices[vox] = nil
 					});
-					"nb mes-amis removed".postln;
+					"nb monami.e removed".postln;
 				};
-			}, "/nb_mesamis/free");
+			}, "/nb_monamie/free");
 
 		}
 	}
