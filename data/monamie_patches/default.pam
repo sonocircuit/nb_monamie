@@ -1,0 +1,23 @@
+return {
+-- Table: {1}
+{
+   ["env_slope"]=0.03,
+   ["ramp_mod"]=0.61,
+   ["pan_drift"]=0.12,
+   ["send_b"]=0.04,
+   ["curve"]=1,
+   ["fm_index"]=-8.8817841970013e-16,
+   ["curve_mod"]=0.0,
+   ["pan"]=0.0,
+   ["send_a"]=0,
+   ["fm_ratio"]=1.01,
+   ["send_b_mod"]=0.09,
+   ["level"]=0.8,
+   ["pitchbend"]=7,
+   ["send_a_mod"]=0.34,
+   ["fm_mod"]=-0.51,
+   ["ramp"]=0.080000000000001,
+   ["env_mode"]=1,
+   ["env_time"]=0.21077011576791,
+},
+}
