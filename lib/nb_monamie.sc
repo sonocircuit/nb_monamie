@@ -8,6 +8,7 @@ NB_monamie {
 
 		var synthParams, synthGroup, synthVoices;
 		var numVoices = 6;
+		var fxABus, fxBBus, outBus;
 
 		StartUp.add {
 
@@ -34,6 +35,8 @@ NB_monamie {
 				\fmMod, 0,
 				\rampMod, 0,
 				\curveMod, 0,
+				\envDurMod, 0,
+				\envRatioMod, 0
 			]);
 
 			synthVoices = Array.newClear(numVoices);
@@ -48,17 +51,18 @@ NB_monamie {
 						level = 1, vel = 1, pan = 0, panDrift = 0, sendA = 0, sendB = 0,
 						gate = 1, envMode = 0, envRatio = 0, envDur = 1.2,
 						freq = 220, pitchBend = 1, bendDepth = 0, fmRatio = 0.5, fmIndex = 0, ramp = 0, curve = 0,
-						modDepth = 0, sendAMod = 0, sendBMod = 0, fmMod = 0, rampMod = 0, curveMod = 0;
+						modDepth = 0, sendAMod = 0, sendBMod = 0, fmMod = 0, rampMod = 0, curveMod = 0, envDurMod = 0, envRatioMod = 0;
 
 						var env, envAR, envASR, envCYL, atk, rel, dA;
 						var modHz, modNz, fmInt, snd, tri, sin, duty, shape, logCurve, expCurve;
 
 						//---- scale, slew, clamp
-						envDur = envDur.max(0.002);
-						atk = Lag.kr(envRatio.linlin(0, 1, 0.002, envDur));
-						rel = Lag.kr(envRatio.linlin(0, 1, envDur, 0.002));
+						envDur = (envDur + (envDurMod * modDepth)).max(0.001);
+						envRatio = (envRatio + (envRatioMod * modDepth)).clip(0, 1);
+						atk = Lag.kr(envRatio.linlin(0, 1, 0.001, envDur));
+						rel = Lag.kr(envRatio.linlin(0, 1, envDur, 0.001));
 
-						pan = Lag.kr(pan + (panDrift * Rand(-0.8, 0.8)), 0.4).clip(-1, 1);
+						pan = Lag.kr(pan + (panDrift * Rand(-0.8, 0.8)), 0.02).clip(-1, 1);
 						sendA = Lag.kr(sendA + (sendAMod * modDepth)).clip(0, 1);
 						sendB = Lag.kr(sendB + (sendBMod * modDepth)).clip(0, 1);
 
@@ -94,7 +98,7 @@ NB_monamie {
 						snd = LinSelectX.ar(curve.linlin(0.5, 1, 0, 1), [snd, sin]);
 
 						//---- lpg-ish > velocity sensitive
-						snd = RLPF.ar(snd, env.linexp(0, 1, 320, 20000), 0.78);
+						snd = RLPF.ar(snd, env.linexp(0, 1, 120, 20000), 0.78);
 
 						//---- dynamics and pan
 						snd = (snd * level * env).tanh;
@@ -106,9 +110,22 @@ NB_monamie {
 						Out.ar(sendBBus, snd * sendB);
 					}).add;
 
-					"nb monami.e initialized".postln;
+					fxABus = s.outputBus;
+					fxBBus = s.outputBus;
+					outBus = s.outputBus;
+
+					"monami.e initialized".postln;
 				};
 			}, "/nb_monamie/init");
+			
+			OSCFunc.new({ |msg|
+				if (synthGroup.notNil) {
+					fxABus = ~sendA ? ~nishoDelayBus ? s.outputBus;
+					fxBBus = ~sendB ? ~nishoReverbBus ? s.outputBus;
+					outBus = ~nishoSumBus ? s.outputBus;
+					"monami.e busses allocated".postln;
+				};
+			}, "/nb_monamie/alloc_busses");
 
 			OSCFunc.new({ |msg|
 				var vox = msg[1].asInteger;
@@ -122,8 +139,9 @@ NB_monamie {
 							\voiceID, vox,
 							\freq, freq,
 							\vel, vel,
-							\sendABus, ~sendA ? s.outputBus,
-							\sendBBus, ~sendB ? s.outputBus,
+							\outBus, outBus,
+							\sendABus, fxABus,
+							\sendBBus, fxBBus,
 						] ++ synthParams.getPairs, target: synthGroup
 					);
 					syn.onFree({ if(synthVoices[vox] === syn) { synthVoices[vox] = nil } });
@@ -158,7 +176,7 @@ NB_monamie {
 					numVoices.do({ arg vox;
 						synthVoices[vox] = nil
 					});
-					"nb monami.e removed".postln;
+					"monami.e removed".postln;
 				};
 			}, "/nb_monamie/free");
 
