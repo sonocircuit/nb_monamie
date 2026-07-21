@@ -18,7 +18,7 @@ local NUM_VOICES = 6
 local paramlist = {
   "level", "pan", "pan_drift", "send_a", "send_b", "pitchbend",
   "ramp", "curve", "fm_ratio", "fm_index", "env_mode", "env_slope", "env_time",
-  "ramp_mod", "curve_mod", "fm_mod", "send_a_mod", "send_b_mod"
+  "ramp_mod", "curve_mod", "fm_mod", "env_slope_mod", "env_time_mod", "send_a_mod", "send_b_mod"
 }
 
 
@@ -26,6 +26,10 @@ local paramlist = {
 
 local function init_nb_monamie()
   osc.send({ "localhost", 57120 }, "/nb_monamie/init")
+end
+
+local function alloc_busses()
+  osc.send({ "localhost", 57120 }, "/nb_monamie/alloc_busses")
 end
 
 local function free_nb_monamie()
@@ -168,7 +172,7 @@ local function time_display(val)
 end
 
 local function add_monamie_params()
-  params:add_group("nb_monamie_group", "monami.e", 26)
+  params:add_group("nb_monamie_group", "monami.e", 28)
   params:hide("nb_monamie_group")
 
   params:add_separator("nb_monamie_patches", "presets")
@@ -220,7 +224,7 @@ local function add_monamie_params()
   params:add_control("nb_monamie_env_slope", "slope [atk/rel]", controlspec.new(0, 1, "lin", 0, 0), function(param) return mix_display(param:get()) end)
   params:set_action("nb_monamie_env_slope", function(val) set_param('envRatio', val) end)
 
-  params:add_control("nb_monamie_env_time", "time", controlspec.new(0.01, 8, "exp", 0, 0, "", 1/500), function(param) return time_display(param:get()) end)
+  params:add_control("nb_monamie_env_time", "time", controlspec.new(0.0026, 8, "exp", 0, 0, "", 1/500), function(param) return time_display(param:get()) end)
   params:set_action("nb_monamie_env_time", function(val) set_param('envDur', val) end)
 
   params:add_separator("nb_monamie_mod", "modulation")
@@ -237,6 +241,12 @@ local function add_monamie_params()
 
   params:add_control("nb_monamie_fm_mod", "fm index", controlspec.new(-1, 1, "lin", 0, 0, "", 1/200), function(param) return round_form(param:get() * 100, 1, "%") end)
   params:set_action("nb_monamie_fm_mod", function(val) set_param('fmMod', val) end)
+
+  params:add_control("nb_monamie_env_slope_mod", "slope", controlspec.new(-1, 1, "lin", 0, 0, "", 1/200), function(param) return round_form(param:get() * 100, 1, "%") end)
+  params:set_action("nb_monamie_env_slope_mod", function(val) set_param('envRatioMod', val) end)
+
+  params:add_control("nb_monamie_env_time_mod", "time", controlspec.new(-1, 1, "lin", 0, 0, "", 1/200), function(param) return round_form(param:get() * 100, 1, "%") end)
+  params:set_action("nb_monamie_env_time_mod", function(val) set_param('envDurMod', val) end)
 
   params:add_control("nb_monamie_send_a_mod", "send a", controlspec.new(-1, 1, "lin", 0, 0, "", 1/200), function(param) return round_form(param:get() * 100, 1, "%") end)
   params:set_action("nb_monamie_send_a_mod", function(val) set_param('sendAMod', val) end)
@@ -270,12 +280,15 @@ function add_nb_monamie_player()
         clock.sleep(0.2)
         if not self.is_active then
           self.is_active = true
+          alloc_busses()
           params:show("nb_monamie_group")
           if md.is_loaded("fx") == false then
-            params:hide("nb_monamie_send_a")
-            params:hide("nb_monamie_send_b")
-            params:hide("nb_monamie_send_a_mod")
-            params:hide("nb_monamie_send_b_mod")
+            if engine.name ~= "Nisho" then
+              params:hide("nb_monamie_send_a")
+              params:hide("nb_monamie_send_b")
+              params:hide("nb_monamie_send_a_mod")
+              params:hide("nb_monamie_send_b_mod")
+            end
           end
           _menu.rebuild_params()
         end
